@@ -1,5 +1,5 @@
 {
-  description = "Will seek for a section of determined length and speed in a GPX file.";
+  description = "Will seek for a section of determined length with speed above and closest to a target in a GPX file.";
 
   inputs = {
     nixpkgs.url      = "github:nixos/nixpkgs/nixos-unstable";
