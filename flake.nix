@@ -23,6 +23,7 @@
             (rust-bin.nightly.latest.default.override {
               extensions = [ "rust-src" ];
             })
+            cargo-edit
             vscode # In order for all Code Actions to work
           ];
 
