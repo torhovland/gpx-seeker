@@ -7,4 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.56"
+chrono = "0.4.19"
 clap = { version = "3.1.9", features = ["derive"] }
+geo = "0.20.0"
+gpx = "0.8.5"
