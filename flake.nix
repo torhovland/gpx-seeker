@@ -24,6 +24,7 @@
               extensions = [ "rust-src" ];
             })
             cargo-edit
+            cargo-flamegraph
             cargo-watch
             vscode # In order for all Code Actions to work
           ];
