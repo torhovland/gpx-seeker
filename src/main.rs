@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::Duration;
+use chrono::{DateTime, Utc};
 use clap::Parser;
 use geo::{point, prelude::*, Point};
 use gpx::Waypoint;
@@ -8,9 +8,9 @@ use std::{fs::File, io::BufReader};
 
 #[derive(Parser)]
 struct Cli {
-    /// The length of the segment in meters
+    /// The distance of the segment in meters
     #[clap(short, long)]
-    length: f64,
+    distance: f64,
 
     /// The target speed in km/h
     #[clap(short, long)]
@@ -21,8 +21,14 @@ struct Cli {
     path: std::path::PathBuf,
 }
 
+struct TrackPoint {
+    time: DateTime<Utc>,
+    accumulated_distance: f64,
+}
+
 fn main() -> Result<()> {
     let args = Cli::parse();
+    let target_distance = args.distance;
     let file = File::open(args.path)?;
     let reader = BufReader::new(file);
     let gpx = gpx::read(reader)?;
@@ -33,46 +39,52 @@ fn main() -> Result<()> {
     let mut best_speed = f64::MAX;
     assert!(segment.points.len() > 0);
     let activity_start = segment.points[0].time.expect("GPX point is missing time.");
+    let mut accumulated_distance = 0.0;
 
-    for (i, start_point) in segment.points.iter().enumerate() {
-        let start_time = start_point.time.expect("GPX point is missing time.");
-        let mut previous_point: Option<&Waypoint> = None;
-        let mut distance = 0.0;
-        let mut timespan = Duration::zero();
-
-        for point in &segment.points[(i + 1)..] {
-            if let Some(previous_point) = previous_point {
-                let p1: Point<f64> = previous_point.as_geopoint();
-                let p2: Point<f64> = point.as_geopoint();
-                distance += p1.geodesic_distance(&p2);
-
-                let t1 = previous_point.time.expect("GPX point is missing time.");
-                let t2 = point.time.expect("GPX point is missing time.");
-                timespan = timespan.checked_add(&(t2 - t1)).unwrap();
+    let points: Vec<_> = segment
+        .points
+        .windows(2)
+        .map(|pair| {
+            let p1 = &pair[0];
+            let p2 = &pair[1];
+            let distance = p1.as_geopoint().geodesic_distance(&p2.as_geopoint());
+            accumulated_distance += distance;
+            let time = p1.time.expect("GPX point is missing time.");
+            TrackPoint {
+                time,
+                accumulated_distance,
             }
+        })
+        .collect();
 
-            if distance > args.length {
-                let speed = distance / 1000.0 / (timespan.num_seconds() as f64 / 3600.0);
+    for start_point in points.iter() {
+        let start_time = start_point.time;
 
-                if speed >= args.speed && speed < best_speed {
-                    let time = point.time.expect("GPX point is missing time.");
-                    best_speed = speed;
+        if let Some(end_point) = points
+            .iter()
+            .filter(|p| {
+                p.accumulated_distance - start_point.accumulated_distance >= target_distance
+            })
+            .next()
+        {
+            let distance = end_point.accumulated_distance - start_point.accumulated_distance;
+            let timespan = end_point.time - start_point.time;
+            let speed = distance / 1000.0 / (timespan.num_seconds() as f64 / 3600.0);
 
-                    println!(
-                        "Start time: {:?} ({:?} - {:?}) - Distance: {:?} - Speed: {:?} km/h, {:?} mph",
-                        start_time,
-                        start_time.signed_duration_since(activity_start).hhmmss(),
-                        time.signed_duration_since(activity_start).hhmmss(),
-                        distance,
-                        speed,
-                        speed / 1.60934
-                    );
-                }
+            if speed >= args.speed && speed < best_speed {
+                let end_time = end_point.time;
+                best_speed = speed;
 
-                break;
+                println!(
+                    "Start time: {:?} ({:?} - {:?}) - Distance: {:?} - Speed: {:?} km/h, {:?} mph",
+                    start_time,
+                    start_time.signed_duration_since(activity_start).hhmmss(),
+                    end_time.signed_duration_since(activity_start).hhmmss(),
+                    distance,
+                    speed,
+                    speed / 1.60934
+                );
             }
-
-            previous_point = Some(point);
         }
     }
 
