@@ -16,6 +16,10 @@ struct Cli {
     #[clap(short, long)]
     speed: f64,
 
+    /// An offset into the file to start the search, in seconds
+    #[clap(short, long)]
+    offset: Option<i64>,
+
     /// The path to the GPX file
     #[clap(parse(from_os_str))]
     path: std::path::PathBuf,
@@ -59,6 +63,16 @@ fn main() -> Result<()> {
 
     for start_point in points.iter() {
         let start_time = start_point.time;
+
+        if let Some(offset) = args.offset {
+            if start_time
+                .signed_duration_since(activity_start)
+                .num_seconds()
+                < offset
+            {
+                continue;
+            }
+        }
 
         if let Some(end_point) = points
             .iter()
