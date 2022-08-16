@@ -1,8 +1,16 @@
 # gpx-seeker
 Will seek for a section of determined distance with speed above and closest to a target in a GPX file.
 
-## Usage
+## Building and running
+
+If you have Nix installed you can run:
 
 ```
-gpx-seeker -distance 10000 -speed 30 <gpx-file>
+nix run . -- --distance 1000 --speed 25.0 file.gpx
+```
+
+Otherwise, if you have Rust installed, you can do:
+
+```
+cargo run -- --distance 1000 --speed 25.0 file.gpx
 ```
